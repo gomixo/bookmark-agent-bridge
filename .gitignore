@@ -3,3 +3,18 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local secrets and task data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+tokens*.json
+operations.json
+bookmarks*.json
+*bookmark*backup*.json
