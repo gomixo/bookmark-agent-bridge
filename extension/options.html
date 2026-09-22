@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Bookmark Agent Bridge 设置</title><style>body{font:15px system-ui;max-width:620px;margin:32px auto;padding:0 16px}label{display:block;margin:16px 0}input[type=text],input[type=password]{box-sizing:border-box;width:100%;padding:8px}button{padding:8px 16px;margin-right:8px}#message{color:#555;min-height:20px}#saved{color:#176b2c}</style></head>
+<body>
+  <h1>Bookmark Agent Bridge 设置</h1>
+  <label>服务地址<input id="serviceUrl" type="text" spellcheck="false"></label>
+  <label>临时令牌<input id="token" type="password" spellcheck="false"></label>
+  <label><input id="allowWrite" type="checkbox"> 允许写入（创建、移动和更新）</label>
+  <label><input id="allowDelete" type="checkbox"> 允许删除</label>
+  <p>状态：<span id="state">读取中</span></p>
+  <p id="message"></p>
+  <button id="save" type="button">保存</button>
+  <button id="connect" type="button">连接 Agent</button>
+  <button id="disconnect" type="button">断开</button>
+  <span id="saved"></span>
+  <script src="options.js"></script>
+</body>
+</html>

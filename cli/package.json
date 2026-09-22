@@ -1,0 +1,30 @@
+{
+  "name": "bookmark-agent-bridge",
+  "version": "0.1.0",
+  "description": "Ephemeral localhost bridge for the Bookmark Agent Bridge Chrome extension",
+  "type": "module",
+  "bin": {
+    "bookmark-agent": "src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gomixo/bookmark-agent-bridge.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/gomixo/bookmark-agent-bridge#readme",
+  "bugs": "https://github.com/gomixo/bookmark-agent-bridge/issues",
+  "license": "MIT"
+}
