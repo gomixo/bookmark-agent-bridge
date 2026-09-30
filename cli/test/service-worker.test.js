@@ -10,7 +10,8 @@ test('invalid service URL changes extension status to error', async (t) => {
       sendMessage: async (message) => { messages.push(message); },
       onMessage: { addListener: (value) => { listener = value; } }
     },
-    storage: { local: { get: async () => ({ serviceUrl: 'not-a-websocket-url', token: 'token', allowWrite: false, allowDelete: false }) } },
+    storage: { local: { get: async () => ({ serviceUrl: 'not-a-websocket-url', token: 'token', allowWrite: false, allowDelete: false, paused: false }), set: async () => {} } },
+    alarms: { create: () => {}, onAlarm: { addListener: () => {} } },
     bookmarks: {}
   };
   globalThis.WebSocket = class {

@@ -1,0 +1,9 @@
+{
+  "name": "bookmark-agent-bridge-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm test --prefix cli",
+    "postinstall": "npm install --prefix cli"
+  }
+}

@@ -2,10 +2,10 @@
 
 ## 传输
 
-- WebSocket 地址默认使用 `ws://127.0.0.1:17373`。
+- WebSocket 地址默认使用 `ws://127.0.0.1:17373`；该端口被占用时服务改用系统分配的端口，`serve` 会在标准错误说明实际端口。
 - 服务只能绑定 loopback。
-- CLI 启动服务时生成随机令牌。用户将令牌填入扩展设置页。
-- 用户点击“连接 Agent”后，扩展建立 WebSocket 连接并发送握手。
+- CLI 启动服务时生成随机令牌，并把地址和令牌写入本地会话文件。用户将 `serve` 打印的那一行粘贴进扩展设置页。
+- 用户点击“连接 Agent”后，扩展建立 WebSocket 连接并发送握手。连接断开后扩展会定时自动重连，直到以下任一停止条件：用户主动断开；服务以 1001 关闭（任务正常结束）；握手被拒绝（1008，如令牌失效或已有扩展连接）或协议版本不符（1002）；连续多次无法连接。暂停状态被持久化，不受后台进程重启影响。
 - 第一版只允许一个扩展连接。第二个连接到达时，服务返回 `CLIENT_ALREADY_CONNECTED`。
 - 消息使用 UTF-8 JSON。每个请求都有 `id`，响应回传相同 `id`。
 - 端口、消息大小限制、超时和令牌存储方式可以在实现时调整，不属于公开协议承诺。
@@ -17,26 +17,20 @@
   "type": "hello",
   "protocolVersion": 1,
   "token": "random-session-token",
-  "extensionVersion": "0.1.0",
-  "capabilities": {
-    "write": true,
-    "delete": false
-  }
+  "extensionVersion": "0.1.0"
 }
 ```
 
-成功响应会回显扩展在握手时声明的能力状态：
+成功响应：
 
 ```json
 {
   "type": "hello.ok",
-  "protocolVersion": 1,
-  "capabilities": {
-    "write": true,
-    "delete": false
-  }
+  "protocolVersion": 1
 }
 ```
+
+写入和删除不由握手声明，扩展在收到每个方法时按自己的持久开关判断，并返回 `WRITE_DISABLED` 或 `DELETE_DISABLED`。
 
 ## 请求与响应
 
@@ -49,7 +43,7 @@
 }
 ```
 
-CLI 请求连接必须携带本次服务打印的令牌。服务验证后只把 `id`、`method` 和 `params` 转发给扩展。带网页 `Origin` 的连接会被拒绝；Origin 检查是令牌认证之外的附加防护。
+CLI 请求连接必须携带本次服务打印的令牌。服务验证后只把 `id`、`method` 和 `params` 转发给扩展。带网页 `Origin` 的连接会被拒绝；Origin 检查是令牌认证之外的附加防护。令牌通常由 CLI 从本地会话文件自动读取，`--token` 可覆盖。
 
 ```json
 {

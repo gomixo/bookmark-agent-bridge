@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { WebSocket } from 'ws';
 import { DEFAULT_TIMEOUT_MS, DEFAULT_URL, parseJson, request } from './protocol.js';
+import { clearSession, readSession, writeSession } from './session.js';
 import { startServer } from './server.js';
 
 function option(args, name, fallback) {
@@ -31,15 +32,20 @@ async function call(message, { url = DEFAULT_URL, timeoutMs = DEFAULT_TIMEOUT_MS
 
 async function main(args = process.argv.slice(2)) {
   const [command, subject] = args;
-  const url = option(args, '--url', process.env.BOOKMARK_AGENT_URL ?? DEFAULT_URL);
-  const token = option(args, '--token', process.env.BOOKMARK_AGENT_TOKEN);
+  const session = command === 'serve' ? null : await readSession();
+  const url = option(args, '--url', process.env.BOOKMARK_AGENT_URL ?? session?.url ?? DEFAULT_URL);
+  const token = option(args, '--token', process.env.BOOKMARK_AGENT_TOKEN ?? session?.token);
   const timeoutMs = Number(option(args, '--timeout', process.env.BOOKMARK_AGENT_TIMEOUT ?? DEFAULT_TIMEOUT_MS));
 
   if (command === 'serve') {
     const parsed = new URL(url);
     const bridge = await startServer({ host: parsed.hostname, port: Number(parsed.port || 17373), timeoutMs });
+    if (bridge.fellBackToEphemeralPort) {
+      console.error(`Port ${parsed.port || 17373} is in use; listening on ${bridge.port} instead. Use the address printed below.`);
+    }
+    await writeSession({ url: bridge.url, token: bridge.token, pid: process.pid });
     console.log(JSON.stringify({ url: bridge.url, token: bridge.token, protocolVersion: 1 }));
-    const stop = async () => { await bridge.close(); process.exit(0); };
+    const stop = async () => { await clearSession(); await bridge.close(); process.exit(0); };
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
     return;
