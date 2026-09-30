@@ -5,6 +5,18 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+tokens*.json
+
 # Task data written by the Agent Skill: batch plans and bookmark backups
 operations.json
 bookmarks*.json

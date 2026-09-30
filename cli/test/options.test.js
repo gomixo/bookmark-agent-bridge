@@ -73,15 +73,6 @@ test('pasting the line printed by serve fills in the address and token', async (
   assert.match(elements.message.textContent, /已导入/);
 });
 
-test('an address and token on one line are imported', async (t) => {
-  const { elements } = await openOptions(t);
-
-  elements.paste.value = 'ws://127.0.0.1:51999 pasted-token';
-  elements.paste.pasteListener({ target: elements.paste });
-  assert.equal(elements.serviceUrl.value, 'ws://127.0.0.1:51999');
-  assert.equal(elements.token.value, 'pasted-token');
-});
-
 test('pasting something that is not a session says so and changes nothing', async (t) => {
   const { elements } = await openOptions(t);
 

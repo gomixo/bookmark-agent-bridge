@@ -21,7 +21,7 @@ function next(socket) {
 
 async function hello(bridge, token = bridge.token) {
   const socket = await connect(bridge.url);
-  socket.send(JSON.stringify({ type: 'hello', protocolVersion: 1, token, extensionVersion: 'test', capabilities: { write: true, delete: false } }));
+  socket.send(JSON.stringify({ type: 'hello', protocolVersion: 1, token, extensionVersion: 'test' }));
   return { socket, response: await next(socket) };
 }
 

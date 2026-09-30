@@ -35,10 +35,12 @@ async function loadWorker(t, { token = 'session-token', paused = false } = {}) {
     constructor(url) { this.url = url; this.sent = []; this.handlers = {}; sockets.push(this); }
     addEventListener(type, listener) { (this.handlers[type] ??= []).push(listener); }
     send(message) { this.sent.push(JSON.parse(message)); }
-    close() { this.drop(); }
-    fire(type) { (this.handlers[type] ?? []).forEach((listener) => listener({})); }
+    close() { this.drop(1000); }
+    fire(type, event = {}) { (this.handlers[type] ?? []).forEach((listener) => listener(event)); }
     settle() { this.readyState = 1; this.fire('open'); }
-    drop() { if (this.readyState === 3) return; this.readyState = 3; this.fire('close'); }
+    // 1006 is what Chrome reports when a connection fails or dies without a
+    // close frame; 1001 is a deliberate "going away" from the bridge.
+    drop(code = 1006) { if (this.readyState === 3) return; this.readyState = 3; this.fire('close', { code }); }
   };
   t.after(() => { delete globalThis.chrome; delete globalThis.WebSocket; });
 
@@ -144,4 +146,43 @@ test('connecting clears the remembered pause', async (t) => {
   await worker.settle();
   assert.equal(worker.sockets.length, 1);
   assert.equal(worker.written.at(-1).paused, false);
+});
+
+test('a bridge that shuts down for good is not called back', async (t) => {
+  const worker = await loadWorker(t);
+  await worker.settle();
+  worker.sockets[0].fire('message', { data: JSON.stringify({ type: 'hello.ok', protocolVersion: 1 }) });
+  await tick();
+
+  worker.sockets[0].drop(1001);
+  await tick();
+  assert.equal(worker.written.at(-1).paused, true);
+
+  await worker.alarms.listener({ name: 'reconnect' });
+  await worker.settle();
+  assert.equal(worker.sockets.length, 1);
+});
+
+test('repeated failures to reach the bridge stop the retries', async (t) => {
+  const worker = await loadWorker(t);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await worker.alarms.listener({ name: 'reconnect' });
+    await tick();
+    worker.sockets.at(-1).drop(1006);
+    await tick();
+  }
+
+  assert.equal(worker.written.at(-1).paused, true);
+  const before = worker.sockets.length;
+  await worker.alarms.listener({ name: 'reconnect' });
+  await worker.settle();
+  assert.equal(worker.sockets.length, before);
+});
+
+test('a successful handshake clears the failure count', async (t) => {
+  const worker = await loadWorker(t);
+  await worker.settle();
+  worker.sockets[0].fire('message', { data: JSON.stringify({ type: 'hello.ok', protocolVersion: 1 }) });
+  await tick();
+  assert.deepEqual(worker.written, [{ failures: 0 }]);
 });

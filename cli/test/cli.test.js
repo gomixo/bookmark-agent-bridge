@@ -142,12 +142,15 @@ test('serve records the session so later calls need no token argument', async (t
   assert.equal(session.pid, child.pid);
 });
 
-test('serve clears the session file when it shuts down', async (t) => {
+test('a session left behind by a stopped service is not reused', async (t) => {
   const env = await sessionEnv(t);
   const child = spawn(process.execPath, [cli, 'serve', '--url', 'ws://127.0.0.1:0'], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   await firstLine(child.stdout);
   assert.ok(await readSession(env.BOOKMARK_AGENT_SESSION));
 
+  // A graceful Ctrl+C deletes the file, but Windows does not deliver a signal
+  // to a process killed this way, so the file can survive. What must hold on
+  // every platform is that a session whose process is gone is never trusted.
   child.kill('SIGINT');
   await once(child, 'exit');
   assert.equal(await readSession(env.BOOKMARK_AGENT_SESSION), null);
@@ -170,7 +173,7 @@ test('call falls back to the recorded session for its url and token', async (t) 
 
 test('an explicit token still wins over the recorded session', async (t) => {
   const env = await sessionEnv(t);
-  await writeSession({ url: 'ws://127.0.0.1:1', token: 'stale', pid: 1 }, env.BOOKMARK_AGENT_SESSION);
+  await writeSession({ url: 'ws://127.0.0.1:1', token: 'stale', pid: process.pid }, env.BOOKMARK_AGENT_SESSION);
 
   const { code, stderr } = await runCli(['call', 'bookmarks.getTree', '--token', 'explicit', '--timeout', '100'], env);
   assert.equal(code, 1);

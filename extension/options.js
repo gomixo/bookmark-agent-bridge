@@ -1,20 +1,17 @@
 const DEFAULTS = { serviceUrl: 'ws://127.0.0.1:17373', token: '', allowWrite: false, allowDelete: false };
 const labels = { disconnected: '未连接', connecting: '连接中', connected: '已连接', error: '错误' };
 
-// Accepts either the JSON line printed by `bookmark-agent serve` or a plain
-// "<url> <token>" pair, so the user only has to copy one thing.
+// Accepts the JSON line printed by `bookmark-agent serve`, so the user only
+// has to copy one thing out of the terminal.
 function parseSession(text) {
   const trimmed = text.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (typeof parsed?.url === 'string' && typeof parsed?.token === 'string') return parsed;
-    } catch { /* fall through to the plain-text form */ }
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return typeof parsed?.url === 'string' && typeof parsed?.token === 'string' ? parsed : null;
+  } catch {
     return null;
   }
-  const match = /^(ws:\/\/\S+)\s+(\S+)$/.exec(trimmed);
-  return match ? { url: match[1], token: match[2] } : null;
 }
 
 function render(status) {

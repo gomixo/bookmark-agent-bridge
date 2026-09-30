@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
-import { rmSync } from 'node:fs';
 import { WebSocket } from 'ws';
 import { DEFAULT_TIMEOUT_MS, DEFAULT_URL, parseJson, request } from './protocol.js';
-import { clearSession, readSession, sessionPath, writeSession } from './session.js';
+import { clearSession, readSession, writeSession } from './session.js';
 import { startServer } from './server.js';
 
 function option(args, name, fallback) {
@@ -45,7 +44,6 @@ async function main(args = process.argv.slice(2)) {
       console.error(`Port ${parsed.port || 17373} is in use; listening on ${bridge.port} instead. Use the address printed below.`);
     }
     await writeSession({ url: bridge.url, token: bridge.token, pid: process.pid });
-    process.once('exit', () => { try { rmSync(sessionPath(), { force: true }); } catch { /* best effort */ } });
     console.log(JSON.stringify({ url: bridge.url, token: bridge.token, protocolVersion: 1 }));
     const stop = async () => { await clearSession(); await bridge.close(); process.exit(0); };
     process.once('SIGINT', stop);
