@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { DEFAULT_TIMEOUT_MS, PROTOCOL_VERSION, errorResponse } from './protocol.js';
 
@@ -10,29 +11,52 @@ const closeWith = (socket, payload, code = 1008) => {
 export async function startServer({ host = '127.0.0.1', port = 17373, token = randomBytes(24).toString('base64url'), timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (host !== '127.0.0.1') throw new Error('The bridge may only bind to 127.0.0.1.');
 
+  // The same port also answers plain HTTP GET /session so the extension can
+  // discover this bridge with one click instead of a pasted line. As with the
+  // WebSocket handshake, browser page origins get nothing and no CORS headers
+  // are sent; the token already sits in a local session file any local
+  // process can read, so this endpoint weakens nothing.
   const listen = async (requestedPort) => {
-    const server = new WebSocketServer({ host, port: requestedPort, maxPayload: 1024 * 1024 });
+    const httpServer = createServer((request, response) => {
+      if (request.method !== 'GET' || request.url !== '/session') {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      const origin = request.headers.origin;
+      if (origin && !origin.startsWith('chrome-extension://')) {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ url: `ws://${host}:${httpServer.address().port}`, token, protocolVersion: PROTOCOL_VERSION }));
+    });
+    const server = new WebSocketServer({ server: httpServer, maxPayload: 1024 * 1024 });
     try {
       await new Promise((resolve, reject) => {
-        server.once('listening', resolve);
+        // ws forwards the HTTP server's errors, so one listener covers both.
         server.once('error', reject);
+        httpServer.once('listening', resolve);
+        httpServer.listen(requestedPort, host);
       });
     } catch (error) {
       server.close();
       throw error;
     }
-    return server;
+    return { server, httpServer };
   };
 
   // A leftover bridge from an earlier task should not block a new one, so an
   // occupied port falls back to an ephemeral one instead of failing outright.
   let server;
+  let httpServer;
   let fellBackToEphemeralPort = false;
   try {
-    server = await listen(port);
+    ({ server, httpServer } = await listen(port));
   } catch (error) {
     if (error.code !== 'EADDRINUSE') throw error;
-    server = await listen(0);
+    ({ server, httpServer } = await listen(0));
     fellBackToEphemeralPort = true;
   }
 
@@ -136,6 +160,8 @@ export async function startServer({ host = '127.0.0.1', port = 17373, token = ra
       if (extension?.readyState === WebSocket.OPEN) extension.close(1001, 'Server shutdown');
       for (const client of server.clients) client.terminate();
       await new Promise((resolve) => server.close(resolve));
+      httpServer.closeAllConnections();
+      await new Promise((resolve) => httpServer.close(resolve));
     }
   };
 }

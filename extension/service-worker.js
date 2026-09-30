@@ -43,7 +43,7 @@ async function connect({ force = false } = {}) {
   if (paused && !force) return updateStatus('disconnected');
   if (paused || force) await chrome.storage.local.set({ paused: false, failures: 0 });
   const config = await settings();
-  if (!config.token) return updateStatus('disconnected', 'Set the session token in Options to connect.');
+  if (!config.token) return updateStatus('disconnected', 'No bridge discovered and no session saved. Start bookmark-agent serve, or paste the line it prints in Options.');
   updateStatus('connecting');
   let opened = false;
   try {

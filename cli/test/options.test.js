@@ -63,6 +63,40 @@ test('options page saves before connecting and renders connection state', async 
   assert.equal(elements.state.textContent, '未连接');
 });
 
+test('connecting discovers a running bridge on its own, replacing a stale token', async (t) => {
+  const { elements, getSaved } = await openOptions(t);
+  globalThis.fetch = async (url) => {
+    assert.equal(url, 'http://127.0.0.1:17373/session');
+    return { ok: true, json: async () => ({ url: 'ws://127.0.0.1:17373', token: 'fresh-token', protocolVersion: 1 }) };
+  };
+  t.after(() => { delete globalThis.fetch; });
+
+  await elements.connect.listener();
+  assert.equal(elements.serviceUrl.value, 'ws://127.0.0.1:17373');
+  assert.equal(elements.token.value, 'fresh-token');
+  assert.equal(getSaved().token, 'fresh-token');
+});
+
+test('connecting falls back to the form when the bridge predates discovery', async (t) => {
+  const { elements, getSaved } = await openOptions(t);
+  globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+  t.after(() => { delete globalThis.fetch; });
+
+  elements.token.value = 'manual-token';
+  await elements.connect.listener();
+  assert.equal(getSaved().token, 'manual-token');
+});
+
+test('connecting falls back to the form when no bridge is running at all', async (t) => {
+  const { elements, getSaved } = await openOptions(t);
+  globalThis.fetch = async () => { throw new Error('connection refused'); };
+  t.after(() => { delete globalThis.fetch; });
+
+  elements.token.value = 'manual-token';
+  await elements.connect.listener();
+  assert.equal(getSaved().token, 'manual-token');
+});
+
 test('pasting the line printed by serve fills in the address and token', async (t) => {
   const { elements } = await openOptions(t);
 

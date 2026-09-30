@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
+import { request as httpRequest } from 'node:http';
 import test from 'node:test';
 import { WebSocket } from 'ws';
 import { startServer } from '../src/server.js';
+
+function httpGet(port, { path = '/session', method = 'GET', headers = {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ host: '127.0.0.1', port, path, method, headers }, (response) => {
+      let body = '';
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body }));
+    });
+    request.once('error', reject);
+    request.end();
+  });
+}
 
 function connect(url) {
   return new Promise((resolve, reject) => {
@@ -70,6 +83,29 @@ test('rejects unsupported protocol versions', async (t) => {
   const socket = await connect(bridge.url);
   socket.send(JSON.stringify({ type: 'hello', protocolVersion: 2, token: bridge.token, extensionVersion: 'test' }));
   assert.equal((await next(socket)).error.code, 'INVALID_REQUEST');
+});
+
+test('serves the session over HTTP on the same port for one-click discovery', async (t) => {
+  const bridge = await startServer({ port: 0 });
+  t.after(() => bridge.close());
+
+  const discovered = await httpGet(bridge.port);
+  assert.equal(discovered.status, 200);
+  assert.equal(discovered.headers['access-control-allow-origin'], undefined);
+  assert.deepEqual(JSON.parse(discovered.body), { url: bridge.url, token: bridge.token, protocolVersion: 1 });
+
+  const { response } = await hello(bridge);
+  assert.equal(response.type, 'hello.ok');
+});
+
+test('does not serve the session to browser page origins or other paths', async (t) => {
+  const bridge = await startServer({ port: 0 });
+  t.after(() => bridge.close());
+
+  const fromPage = await httpGet(bridge.port, { headers: { Origin: 'https://evil.example' } });
+  assert.equal(fromPage.status, 403);
+  assert.equal((await httpGet(bridge.port, { path: '/' })).status, 404);
+  assert.equal((await httpGet(bridge.port, { method: 'POST' })).status, 404);
 });
 
 test('correlates request IDs and reports disconnects', async (t) => {

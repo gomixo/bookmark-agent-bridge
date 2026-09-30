@@ -1,6 +1,23 @@
 const DEFAULTS = { serviceUrl: 'ws://127.0.0.1:17373', token: '', allowWrite: false, allowDelete: false };
 const labels = { disconnected: '未连接', connecting: '连接中', connected: '已连接', error: '错误' };
 
+// The bridge answers GET /session on its default port, so one click can
+// discover the current session without pasting anything. Discovery runs on
+// every click: reusing a stale token saved by an earlier task is worse than a
+// wasted probe. Pasting stays as the fallback for bridges on other ports.
+const DISCOVERY_URL = 'http://127.0.0.1:17373/session';
+
+async function discoverSession() {
+  try {
+    const response = await fetch(DISCOVERY_URL, { signal: AbortSignal.timeout(2000) });
+    if (!response.ok) return null;
+    const session = await response.json();
+    return typeof session?.url === 'string' && typeof session?.token === 'string' ? session : null;
+  } catch {
+    return null;
+  }
+}
+
 // Accepts the JSON line printed by `bookmark-agent serve`, so the user only
 // has to copy one thing out of the terminal.
 function parseSession(text) {
@@ -54,6 +71,11 @@ export function bindOptionsPage() {
 
   document.querySelector('#save').addEventListener('click', save);
   document.querySelector('#connect').addEventListener('click', async () => {
+    const discovered = await discoverSession();
+    if (discovered) {
+      document.querySelector('#serviceUrl').value = discovered.url;
+      document.querySelector('#token').value = discovered.token;
+    }
     await save();
     render(await chrome.runtime.sendMessage({ type: 'connect' }));
   });

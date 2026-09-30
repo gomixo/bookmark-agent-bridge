@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Bookmark Agent Bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Connects a local Agent to this Chrome profile's native bookmarks.",
   "permissions": ["bookmarks", "storage", "alarms"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*"
   },
   "background": {
     "service_worker": "service-worker.js",
