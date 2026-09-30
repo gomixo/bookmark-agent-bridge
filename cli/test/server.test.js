@@ -25,12 +25,31 @@ async function hello(bridge, token = bridge.token) {
   return { socket, response: await next(socket) };
 }
 
+test('uses the requested port when it is free', async (t) => {
+  const bridge = await startServer({ port: 0 });
+  t.after(() => bridge.close());
+  assert.equal(bridge.fellBackToEphemeralPort, false);
+});
+
+test('falls back to another port when the requested one is occupied', async (t) => {
+  const occupied = await startServer({ port: 0 });
+  t.after(() => occupied.close());
+
+  const bridge = await startServer({ port: occupied.port });
+  t.after(() => bridge.close());
+  assert.equal(bridge.fellBackToEphemeralPort, true);
+  assert.notEqual(bridge.port, occupied.port);
+
+  const { response } = await hello(bridge);
+  assert.equal(response.type, 'hello.ok');
+});
+
 test('binds only to loopback and completes handshake', async (t) => {
   const bridge = await startServer({ port: 0 });
   t.after(() => bridge.close());
   assert.equal(bridge.host, '127.0.0.1');
   const { response } = await hello(bridge);
-  assert.deepEqual(response, { type: 'hello.ok', protocolVersion: 1, capabilities: { write: true, delete: false } });
+  assert.deepEqual(response, { type: 'hello.ok', protocolVersion: 1 });
   await assert.rejects(() => startServer({ host: '0.0.0.0', port: 0 }), /only bind/);
 });
 

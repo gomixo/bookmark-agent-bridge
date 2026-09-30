@@ -1,20 +1,11 @@
 cli/node_modules/
+node_modules/
 dist/
 *.log
 .DS_Store
 Thumbs.db
 
-# Local secrets and task data
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-credentials*.json
-secrets*.json
-tokens*.json
+# Task data written by the Agent Skill: batch plans and bookmark backups
 operations.json
 bookmarks*.json
 *bookmark*backup*.json

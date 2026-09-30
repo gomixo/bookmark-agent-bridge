@@ -7,7 +7,7 @@ export const DEFAULT_TIMEOUT_MS = 10_000;
 export function request(method, params = {}, token) {
   if (typeof method !== 'string' || !method) throw new Error('method must be a non-empty string');
   if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('params must be a JSON object');
-  if (typeof token !== 'string' || !token) throw new Error('A session token is required. Use --token or BOOKMARK_AGENT_TOKEN.');
+  if (typeof token !== 'string' || !token) throw new Error('A session token is required. Start a bridge with `bookmark-agent serve`, or pass --token.');
   return { id: randomUUID(), method, params, token };
 }
 

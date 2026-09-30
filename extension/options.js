@@ -1,6 +1,22 @@
 const DEFAULTS = { serviceUrl: 'ws://127.0.0.1:17373', token: '', allowWrite: false, allowDelete: false };
 const labels = { disconnected: '未连接', connecting: '连接中', connected: '已连接', error: '错误' };
 
+// Accepts either the JSON line printed by `bookmark-agent serve` or a plain
+// "<url> <token>" pair, so the user only has to copy one thing.
+function parseSession(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed?.url === 'string' && typeof parsed?.token === 'string') return parsed;
+    } catch { /* fall through to the plain-text form */ }
+    return null;
+  }
+  const match = /^(ws:\/\/\S+)\s+(\S+)$/.exec(trimmed);
+  return match ? { url: match[1], token: match[2] } : null;
+}
+
 function render(status) {
   const state = status?.state ?? 'disconnected';
   document.querySelector('#state').textContent = labels[state] ?? state;
@@ -26,12 +42,28 @@ async function save() {
   setTimeout(() => { document.querySelector('#saved').textContent = ''; }, 1500);
 }
 
-document.querySelector('#save').addEventListener('click', save);
-document.querySelector('#connect').addEventListener('click', async () => {
-  await save();
-  render(await chrome.runtime.sendMessage({ type: 'connect' }));
-});
-document.querySelector('#disconnect').addEventListener('click', async () => render(await chrome.runtime.sendMessage({ type: 'disconnect' })));
-chrome.runtime.onMessage.addListener((message) => { if (message.type === 'status.changed') render(message.status); });
-chrome.runtime.sendMessage({ type: 'status' }).then(render);
-load();
+export function bindOptionsPage() {
+  document.querySelector('#paste').addEventListener('input', (event) => {
+    const session = parseSession(event.target.value);
+    const message = document.querySelector('#message');
+    if (!session) {
+      message.textContent = event.target.value.trim() ? '无法识别，请粘贴 serve 打印的那一行。' : '';
+      return;
+    }
+    document.querySelector('#serviceUrl').value = session.url;
+    document.querySelector('#token').value = session.token;
+    message.textContent = '已导入地址和令牌，点“连接 Agent”即可。';
+  });
+
+  document.querySelector('#save').addEventListener('click', save);
+  document.querySelector('#connect').addEventListener('click', async () => {
+    await save();
+    render(await chrome.runtime.sendMessage({ type: 'connect' }));
+  });
+  document.querySelector('#disconnect').addEventListener('click', async () => render(await chrome.runtime.sendMessage({ type: 'disconnect' })));
+  chrome.runtime.onMessage.addListener((message) => { if (message.type === 'status.changed') render(message.status); });
+  chrome.runtime.sendMessage({ type: 'status' }).then(render);
+  load();
+}
+
+if (typeof document !== 'undefined') bindOptionsPage();

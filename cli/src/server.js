@@ -10,7 +10,32 @@ const closeWith = (socket, payload, code = 1008) => {
 export async function startServer({ host = '127.0.0.1', port = 17373, token = randomBytes(24).toString('base64url'), timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (host !== '127.0.0.1') throw new Error('The bridge may only bind to 127.0.0.1.');
 
-  const server = new WebSocketServer({ host, port, maxPayload: 1024 * 1024 });
+  const listen = async (requestedPort) => {
+    const server = new WebSocketServer({ host, port: requestedPort, maxPayload: 1024 * 1024 });
+    try {
+      await new Promise((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+      });
+    } catch (error) {
+      server.close();
+      throw error;
+    }
+    return server;
+  };
+
+  // A leftover bridge from an earlier task should not block a new one, so an
+  // occupied port falls back to an ephemeral one instead of failing outright.
+  let server;
+  let fellBackToEphemeralPort = false;
+  try {
+    server = await listen(port);
+  } catch (error) {
+    if (error.code !== 'EADDRINUSE') throw error;
+    server = await listen(0);
+    fellBackToEphemeralPort = true;
+  }
+
   let extension = null;
   const pending = new Map();
 
@@ -46,14 +71,7 @@ export async function startServer({ host = '127.0.0.1', port = 17373, token = ra
         if (extension?.readyState === WebSocket.OPEN) return closeWith(socket, errorResponse(null, 'CLIENT_ALREADY_CONNECTED', 'An extension is already connected.'));
 
         extension = socket;
-        socket.send(JSON.stringify({
-          type: 'hello.ok',
-          protocolVersion: PROTOCOL_VERSION,
-          capabilities: {
-            write: message.capabilities?.write === true,
-            delete: message.capabilities?.delete === true
-          }
-        }));
+        socket.send(JSON.stringify({ type: 'hello.ok', protocolVersion: PROTOCOL_VERSION }));
         socket.on('message', (data) => {
           let response;
           try { response = JSON.parse(data.toString()); } catch { return; }
@@ -101,11 +119,6 @@ export async function startServer({ host = '127.0.0.1', port = 17373, token = ra
     });
   });
 
-  await new Promise((resolve, reject) => {
-    server.once('listening', resolve);
-    server.once('error', reject);
-  });
-
   const keepAlive = setInterval(() => {
     if (extension?.readyState === WebSocket.OPEN) extension.send(JSON.stringify({ type: 'ping' }));
   }, 20_000);
@@ -115,6 +128,7 @@ export async function startServer({ host = '127.0.0.1', port = 17373, token = ra
     host,
     port: address.port,
     token,
+    fellBackToEphemeralPort,
     url: `ws://${host}:${address.port}`,
     close: async () => {
       clearInterval(keepAlive);
