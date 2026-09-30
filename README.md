@@ -17,6 +17,7 @@ Agent 直接修改 Chrome 的书签文件会绕过 Chrome 的书签模型和 Goo
 - 服务由用户或 Agent 在任务期间临时启动，不安装后台服务或自动同步。
 - 修改操作可携带 `expected` 旧值，书签已变化时拒绝执行。
 - `serve` 会把本次地址和令牌写入本地会话文件，该文件只在其进程存活期间被信任。
+- 服务同端口的 `GET /session` 返回本次地址和令牌，供扩展一键自动发现；它拒绝网页 Origin 且不发送 CORS 头，网页无法读取响应（令牌本就明文存于上述本地会话文件）。
 
 ## 要求
 
@@ -36,7 +37,7 @@ npm install --global ./cli
 如果使用 GitHub Release 中的 `.tgz` 包：
 
 ```powershell
-npm install --global .\bookmark-agent-bridge-0.1.0.tgz
+npm install --global .\bookmark-agent-bridge-0.2.0.tgz
 ```
 
 启动一次性服务：
@@ -52,11 +53,12 @@ bookmark-agent serve
 1. 打开 `chrome://extensions`。
 2. 开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择本项目的 `extension` 目录。
-4. 打开扩展设置，把 `serve` 打印的整行粘贴进“粘贴会话信息”，地址和令牌会自动填好。
+4. 打开扩展设置，直接点击“连接 Agent”：扩展会自动发现本机运行中的 `serve`，无需粘贴。仅当自动发现失败时（例如默认端口被占用、`serve` 落到了临时端口），才把 `serve` 打印的整行粘贴进“粘贴会话信息”再点连接。
 5. 按任务需要开启“允许写入”或“允许删除”；默认均关闭。
-6. 点击“连接 Agent”。
 
 连接建立后扩展会在 Chrome 挂起后台进程时自动重连，不需要在任务期间反复点击。用户点“断开”后扩展记住这个状态，即使 Chrome 重新唤醒后台进程也不会自行连回去，直到再次点“连接 Agent”。
+
+注意：Chrome 不会因为磁盘文件变化而自动重载已解压的扩展。拉取本项目更新后，必须在 `chrome://extensions` 点击该扩展的刷新按钮才会生效（卡片上的版本号应与仓库 `extension/manifest.json` 一致）。建议始终加载 `extension/` 源码目录；`dist/` 只是打包产物，可能落后。
 
 第一版只测试和承诺 Google Chrome。
 
@@ -101,7 +103,7 @@ npm test
 npm pack ./cli
 ```
 
-扩展 ZIP 输出到 `dist/bookmark-agent-bridge-extension-0.1.0.zip`。ZIP 可解压后通过开发者模式加载；本项目不发布 Chrome Web Store。
+扩展 ZIP 输出到 `dist/bookmark-agent-bridge-extension-0.2.0.zip`（文件名随 manifest 版本号变化）。ZIP 可解压后通过开发者模式加载；本项目不发布 Chrome Web Store。
 
 ## 文档
 

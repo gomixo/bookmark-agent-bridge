@@ -32,6 +32,11 @@ async function call(message, { url = DEFAULT_URL, timeoutMs = DEFAULT_TIMEOUT_MS
 
 async function main(args = process.argv.slice(2)) {
   const [command, subject] = args;
+  if (command === '--version' || command === '-v') {
+    const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    console.log(version);
+    return;
+  }
   const session = command === 'serve' ? null : await readSession();
   const url = option(args, '--url', process.env.BOOKMARK_AGENT_URL ?? session?.url ?? DEFAULT_URL);
   const token = option(args, '--token', process.env.BOOKMARK_AGENT_TOKEN ?? session?.token);

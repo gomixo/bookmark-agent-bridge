@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,6 +80,14 @@ function spawnCli(args, env = {}) {
   ]);
   return { child, started, exit, stderr: firstLine(child.stderr) };
 }
+
+test('--version prints the CLI version and exits cleanly', async () => {
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const { code, stdout, stderr } = await runCli(['--version']);
+  assert.equal(code, 0);
+  assert.equal(stdout, version);
+  assert.equal(stderr, '');
+});
 
 test('call gives a clear error when the service is not running', async () => {
   const child = spawn(process.execPath, [cli, 'call', 'bookmarks.getTree', '--url', 'ws://127.0.0.1:1', '--token', 'test', '--timeout', '100'], { stdio: ['ignore', 'pipe', 'pipe'] });
