@@ -163,6 +163,34 @@ test('a bridge that shuts down for good is not called back', async (t) => {
   assert.equal(worker.sockets.length, 1);
 });
 
+test('a bridge that rejects the stored session is not dialled again', async (t) => {
+  const worker = await loadWorker(t);
+  await worker.settle();
+
+  // A new serve prints a new token; the extension still holds the old one, so
+  // the bridge refuses the handshake with 1008 after the socket has opened.
+  worker.sockets[0].drop(1008);
+  await tick();
+  assert.equal(worker.written.at(-1).paused, true);
+
+  await worker.alarms.listener({ name: 'reconnect' });
+  await worker.settle();
+  assert.equal(worker.sockets.length, 1);
+});
+
+test('a bridge speaking the wrong protocol version is not dialled again', async (t) => {
+  const worker = await loadWorker(t);
+  await worker.settle();
+
+  worker.sockets[0].drop(1002);
+  await tick();
+  assert.equal(worker.written.at(-1).paused, true);
+
+  await worker.alarms.listener({ name: 'reconnect' });
+  await worker.settle();
+  assert.equal(worker.sockets.length, 1);
+});
+
 test('repeated failures to reach the bridge stop the retries', async (t) => {
   const worker = await loadWorker(t);
   for (let attempt = 0; attempt < 5; attempt++) {

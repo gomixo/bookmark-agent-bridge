@@ -22,9 +22,14 @@ async function pause(message) {
 
 // Chrome keeps waking this worker, so without a stop condition a finished task
 // would leave it dialling a dead port forever. A deliberate shutdown ends the
-// session at once; anything else is retried a few times and then given up on.
+// session at once. A rejection ends it too: the bridge closes with 1008 when
+// it refuses the handshake, and this worker uses 1002 when the bridge speaks
+// the wrong protocol version — redialling cannot fix either. Anything else is
+// retried a few times and then given up on.
 async function noteClosed(code, opened) {
   if (code === 1001) return pause('The bridge has stopped. Connect again to start a new session.');
+  if (code === 1008) return pause('The bridge rejected this session. Paste the new session line from serve, then connect again.');
+  if (code === 1002) return pause('The bridge speaks an incompatible protocol version. Update the CLI and the extension, then connect again.');
   if (opened) return;
   const { failures = 0 } = await chrome.storage.local.get('failures');
   const attempts = failures + 1;
